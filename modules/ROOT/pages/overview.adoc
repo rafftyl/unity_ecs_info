@@ -1,0 +1,5 @@
+= Opis dokumentu
+
+Yo, ten dokument ma służyć jako repozytorium wiedzy dotyczącej zakładania i prowadzenia firmy.
+Znajdują się w nim wszelkie informacje na temat papierologii, pozyskiwania finansowania, zatrudniania ludzi, rozliczania podatków etc.
+Repozytorium z całą zawartością tego dokumentu znajduje się na moim link:https://github.com/rafftyl/firma[githubie].
