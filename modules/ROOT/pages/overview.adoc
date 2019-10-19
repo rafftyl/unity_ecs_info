@@ -1,1 +1,103 @@
-= Document overview
+= Main Page
+
+== Conversion from MonoBehavior to Entity
+. Mark `MonoBehavior` as `[RequiresEntityConversion]` and implement `IConvertGameObject` interface
+. In the `Convert` method create ECS component data and call `EntityManager.AddComponentData(entity, componentData)`
+. Use `IDeclareReferencedPrefabs` interface
+
+
+== Code samples - entities
+.Entity spawning
+[source,C#]
+----
+Entity prefabEntity = GameObjectConversionUtility.ConvertGameObjectHierarchy(Prefab);
+var entityManger = World.Active.EntityManager;
+var instance = entityManager.Instantiate(prefabEntity);
+
+----
+
+.Multispawn
+[source,C#]
+----
+var entities = new NativeArray<Entity>(toSpawnCount, Allocator.Temp);
+for (int i = 0; i < toSpawnCount; ++i)
+{
+    entities[i] = PostUpdateCommands.Instantiate(spawner.Prefab);
+}
+for (int i = 0; i < toSpawnCount; i++)
+{
+    PostUpdateCommands.SetComponent(entities[i], new LocalToWorld
+    {
+        Value = float4x4.TRS(localToWorld.Position +
+        (spawnPositions[i] * spawner.Radius),
+        quaternion.LookRotationSafe(spawnPositions[i], math.up()),
+                            new float3(1.0f, 1.0f, 1.0f))});
+    }
+}
+----
+
+== Code samples - systems, jobs
+
+.Sample 1
+[source,C#]
+----
+[BurstCompile]
+struct LifeTimeJob : IJobForEachWithEntity<LifeTime>
+{
+    public float DeltaTime;
+    [WriteOnly]
+    public EntityCommandBuffer.Concurrent CommandBuffer;
+    public void Execute(Entity entity, int jobIndex, ref LifeTime lifeTime)
+    {
+        lifeTime.Value -= DeltaTime;
+        if (lifeTime.Value < 0.0f)
+        {
+            CommandBuffer.DestroyEntity(jobIndex, entity);
+        }
+    }
+}
+----
+
+.Sample 2
+[source,C#]
+----
+protected override JobHandle OnUpdate(JobHandle inputDependencies)
+{
+    var commandBuffer = m_Barrier.CreateCommandBuffer().ToConcurrent();
+
+    var job = new LifeTimeJob
+    {
+        DeltaTime = Time.deltaTime,
+        CommandBuffer = commandBuffer,
+
+    }.Schedule(this, inputDependencies);
+
+    m_Barrier.AddJobHandleForProducer(job);
+
+    return job;
+}
+----
+
+.Sample 3 - queries
+[source,C#]
+----
+//in JobComponentSystem.OnCreate
+m_BoidQuery = GetEntityQuery(new EntityQueryDesc
+{
+    All = new [] { ComponentType.ReadOnly<Boid>(), ComponentType.ReadWrite<LocalToWorld>() },
+});
+
+m_TargetQuery = GetEntityQuery(new EntityQueryDesc
+{
+    All = new [] { ComponentType.ReadOnly<BoidTarget>(), ComponentType.ReadOnly<LocalToWorld>() },
+});
+            
+m_ObstacleQuery = GetEntityQuery(new EntityQueryDesc
+{
+    All = new [] { ComponentType.ReadOnly<BoidObstacle>(), ComponentType.ReadOnly<LocalToWorld>() },
+});
+
+Boid settings = m_UniqueTypes[boidVariantIndex];
+                m_BoidQuery.SetFilter(settings); //boid is a shared component
+
+----
